@@ -1,0 +1,136 @@
+FUNCTION y_fi_0fi_gl_4_saplrsap_001.
+*"----------------------------------------------------------------------
+*"*"Local interface:
+*"  IMPORTING
+*"     REFERENCE(IV_DATASOURCE) TYPE  RSAOT_OLTPSOURCE
+*"     REFERENCE(IV_ISOURCE) TYPE  SBIWA_S_INTERFACE-ISOURCE
+*"     REFERENCE(IV_UPDMODE) TYPE  SBIWA_S_INTERFACE-UPDMODE
+*"  TABLES
+*"      IT_SELECT TYPE  SBIWA_T_SELECT
+*"      IT_FIELDS TYPE  SBIWA_T_FIELDS
+*"      CT_DATA
+*"      CT_MESSAGES STRUCTURE  BALMI OPTIONAL
+*"----------------------------------------------------------------------
+* Issue ID    : XQSFHE7
+* Prog. Ref.  : DCCFINDEM
+* Author      : PACEK
+* Date        : 20111117
+* Description : 0FI_GL4 enhancement: customer number to be derived from
+*               profitability segment
+*               To be called in EXIT_SAPLRSAP_001
+*-----------------------------------------------------------------------
+* Issue ID    : SD14-025
+* Prog. Ref.  : SCFS825
+* Author      : VANKINA
+* CR          : 2966
+* Date        : 20153003
+* Description : 0FI_GL4 enhancement: POSID - WBS Element Required with
+*                Hyphens.
+*-----------------------------------------------------------------------
+
+  TYPES: BEGIN OF yls_bseg,
+          bukrs   TYPE bseg-bukrs,
+          belnr   TYPE bseg-belnr,
+          gjahr   TYPE bseg-gjahr,
+          buzei   TYPE bseg-buzei,
+          paobjnr TYPE bseg-paobjnr,
+         END OF yls_bseg.
+  TYPES: BEGIN OF yls_bseg_key,
+          bukrs   TYPE bseg-bukrs,
+          belnr   TYPE bseg-belnr,
+          gjahr   TYPE bseg-gjahr,
+          buzei   TYPE bseg-buzei,
+         END OF yls_bseg_key.
+  TYPES: BEGIN OF yls_ce4nmp1_acct,
+          paobjnr TYPE ce4nmp1_acct-paobjnr,
+          kndnr   TYPE ce4nmp1_acct-kndnr,
+         END OF yls_ce4nmp1_acct.
+  FIELD-SYMBOLS: <ls_data> TYPE dtfigl_4.
+  DATA: lv_active   TYPE char1,
+        ls_bseg     TYPE yls_bseg,
+        ls_bseg_key TYPE yls_bseg_key,
+        ls_ce4nmp1_acct TYPE yls_ce4nmp1_acct,
+        lt_bseg TYPE SORTED TABLE OF yls_bseg
+          WITH UNIQUE KEY bukrs belnr gjahr buzei,
+        lt_bseg_key TYPE SORTED TABLE OF yls_bseg_key
+          WITH UNIQUE KEY bukrs belnr gjahr buzei,
+        lt_ce4nmp1_acct TYPE SORTED TABLE OF yls_ce4nmp1_acct
+          WITH UNIQUE KEY paobjnr.
+* <<< EBB_FBB_RELA:SCFS825:SD14-025:DEMA-64648:CR-#2966:VANKINA.
+  DATA:lv_posid TYPE ps_posid.
+  CONSTANTS:lc_errwbs TYPE char5 VALUE '<<<PR'.
+* >>> EBB_FBB_RELA:SCFS825:SD14-025:DEMA-64648:CR-#2966:VANKINA.
+*--- Step 1. Active only for OFI_GL_4 BW data source !
+  CHECK iv_datasource = '0FI_GL_4'.
+*--- Step 2. Retrieve corresponding accounting line itmes
+  LOOP AT ct_data ASSIGNING <ls_data>.
+* <<< EBB_FBB_RELA:SCFS825:SD14-025:DEMA-64648:CR-#2966:VANKINA.
+    IF <ls_data> IS  ASSIGNED AND <ls_data>-ps_posid IS NOT INITIAL.
+      CALL FUNCTION 'CONVERSION_EXIT_ABPSN_OUTPUT'
+        EXPORTING
+          input  = <ls_data>-ps_posid
+        IMPORTING
+          output = lv_posid.
+      IF lv_posid IS NOT INITIAL AND lv_posid+0(5) <> lc_errwbs.
+*        Converting the WBS without Hyphens to With-Hyphens.
+        <ls_data>-ps_posid = lv_posid.
+      ENDIF.
+      CLEAR lv_posid.
+    ENDIF.
+* >>> EBB_FBB_RELA:SCFS825:SD14-025:DEMA-64648:CR-#2966:VANKINA.
+*--- Check account number here
+    PERFORM ybcue1_check
+                USING
+                   '001'
+                   <ls_data>
+                CHANGING
+                   lv_active.
+    CHECK lv_active = c_true.
+    ls_bseg_key-bukrs = <ls_data>-bukrs.
+    ls_bseg_key-belnr = <ls_data>-belnr.
+    ls_bseg_key-gjahr = <ls_data>-fiscper(4).
+    ls_bseg_key-buzei = <ls_data>-buzei.
+    INSERT ls_bseg_key INTO TABLE lt_bseg_key.
+    CLEAR: ls_bseg_key.
+  ENDLOOP.
+  IF lt_bseg_key[] IS NOT INITIAL.
+    SELECT bukrs belnr gjahr buzei paobjnr
+      INTO TABLE lt_bseg
+    FROM bseg
+    FOR ALL ENTRIES IN lt_bseg_key
+    WHERE bukrs = lt_bseg_key-bukrs
+      AND belnr = lt_bseg_key-belnr
+      AND gjahr = lt_bseg_key-gjahr
+      AND buzei = lt_bseg_key-buzei.
+  ENDIF.
+  FREE: lt_bseg_key.
+*--- Step 3. Retrieve profitability segment data
+  IF lt_bseg[] IS NOT INITIAL.
+    SELECT paobjnr kndnr
+      INTO TABLE lt_ce4nmp1_acct
+    FROM ce4nmp1_acct
+    FOR ALL ENTRIES IN lt_bseg
+    WHERE aktbo   = c_true
+      AND paobjnr = lt_bseg-paobjnr
+      AND pasubnr = '001'.
+  ENDIF.
+*--- Step 4. Update customer information in data source table
+  CHECK lt_ce4nmp1_acct[] IS NOT INITIAL.
+  LOOP AT ct_data ASSIGNING <ls_data>.
+    READ TABLE lt_bseg INTO ls_bseg
+      WITH TABLE KEY bukrs = <ls_data>-bukrs
+                     belnr = <ls_data>-belnr
+                     gjahr = <ls_data>-fiscper(4)
+                     buzei = <ls_data>-buzei
+    TRANSPORTING paobjnr.
+    IF sy-subrc IS INITIAL.
+      READ TABLE lt_ce4nmp1_acct INTO ls_ce4nmp1_acct
+        WITH TABLE KEY paobjnr = ls_bseg-paobjnr
+      TRANSPORTING kndnr.
+      IF sy-subrc IS INITIAL.
+        <ls_data>-yyfi_kndnr = ls_ce4nmp1_acct-kndnr.
+      ENDIF.
+    ENDIF.
+    CLEAR: ls_bseg, ls_ce4nmp1_acct.
+  ENDLOOP.
+ENDFUNCTION.
