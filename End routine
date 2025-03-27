@@ -1,0 +1,417 @@
+PROGRAM trans_routine.
+
+
+*---------------------------------------------------------------------*
+*       CLASS routine DEFINITION
+*---------------------------------------------------------------------*
+*
+*---------------------------------------------------------------------*
+CLASS lcl_transform DEFINITION.
+  PUBLIC SECTION.
+
+*  Attributs
+    DATA:
+*-    Rule context
+      p_curr_rule
+            TYPE cl_rstran_runtime_exe=>ty_s_rule_context READ-ONLY,
+      p_check_master_data_exist
+            TYPE RSODSOCHECKONLY READ-ONLY,
+*-    Instance for getting request runtime attributs;
+*     Available information: Refer to methods of
+*     interface 'if_rsbk_request_admintab_view'
+      p_r_request
+            TYPE REF TO if_rsbk_request_admintab_view READ-ONLY.
+
+  PRIVATE SECTION.
+
+    TYPE-POOLS: rsd, rstr.
+
+*   Rule specific types
+    TYPES:
+      BEGIN OF _ty_s_SC_1,
+*      InfoObject: 0INSP_LOT Inspection Lot Number.
+        INSP_LOT           TYPE /BI0/OIINSP_LOT,
+*      InfoObject: 0UCSERIALNR Serial Number.
+        UCSERIALNR           TYPE /BI0/OIUCSERIALNR,
+*      InfoObject: 0PLAN_NODE Number of the Task List Node.
+        PLAN_NODE           TYPE /BI0/OIPLAN_NODE,
+*      InfoObject: 0INSP_CHAR Inspection characteristic number.
+        INSP_CHAR           TYPE /BI0/OIINSP_CHAR,
+*      InfoObject: 0PLAN_TYPE Task list type.
+        PLAN_TYPE           TYPE /BI0/OIPLAN_TYPE,
+*      InfoObject: 0PLNNR Key for task list group.
+        PLNNR           TYPE /BI0/OIPLNNR,
+*      InfoObject: 0MASTERCHAR Unique Identifier for a Master Inspection
+* Characteristic.
+        MASTERCHAR           TYPE /BI0/OIMASTERCHAR,
+*      InfoObject: 0CATSTEXT Short text.
+        CATSTEXT           TYPE /BI0/OICATSTEXT,
+*      InfoObject: 0OPERATION Operation Number.
+        OPERATION           TYPE /BI0/OIOPERATION,
+*      InfoObject: ZKTSCH Short Text Key.
+        /BIC/ZKTSCH           TYPE /BIC/OIZKTSCH,
+*      InfoObject: ZZTEXT JPLPO - Short Text.
+        /BIC/ZZTEXT           TYPE /BIC/OIZZTEXT,
+*      InfoObject: ZINDRESLT Number of the Individual Result.
+        /BIC/ZINDRESLT           TYPE /BIC/OIZINDRESLT,
+*      InfoObject: 0DF_OPRNR Task List Number of Operations in the Order
+*.
+        DF_OPRNR           TYPE /BI0/OIDF_OPRNR,
+*      InfoObject: 0USERNAME User Name.
+        USERNAME           TYPE /BI0/OIUSERNAME,
+*      InfoObject: 0CPR_CREATE Created On.
+        CPR_CREATE           TYPE /BI0/OICPR_CREATE,
+*      InfoObject: 0CCMSTDAT Start Date.
+        CCMSTDAT           TYPE /BI0/OICCMSTDAT,
+*      InfoObject: 0CCMSTTIM Start Time.
+        CCMSTTIM           TYPE /BI0/OICCMSTTIM,
+*      InfoObject: 0MCHAR_PLNT Plant of the master inspection characteri
+*stic.
+        MCHAR_PLNT           TYPE /BI0/OIMCHAR_PLNT,
+*      InfoObject: ZCOND_CD Code.
+        /BIC/ZCOND_CD           TYPE /BIC/OIZCOND_CD,
+*      InfoObject: 0CAT_CODE Code.
+        CAT_CODE           TYPE /BI0/OICAT_CODE,
+*      InfoObject: ZTXTMD Medium description.
+        /BIC/ZTXTMD           TYPE /BIC/OIZTXTMD,
+*      InfoObject: 0CAT_GROUP Code group.
+        CAT_GROUP           TYPE /BI0/OICAT_GROUP,
+*      InfoObject: 0CAT_TYPE Catalog.
+        CAT_TYPE           TYPE /BI0/OICAT_TYPE,
+*      InfoObject: 0UCSAMPLOT Sample Lot.
+        UCSAMPLOT           TYPE /BI0/OIUCSAMPLOT,
+*      InfoObject: 0RECDVSI Measured Value in SI Unit.
+        RECDVSI           TYPE /BI0/OIRECDVSI,
+*      InfoObject: 0SIUNIT SI unit.
+        SIUNIT           TYPE /BI0/OISIUNIT,
+*      InfoObject: 0RECORDMODE BW Delta Process: Update Mode.
+        RECORDMODE           TYPE RODMUPDMOD,
+*      InfoObject: ZTBLYR Table Year.
+        /BIC/ZTBLYR           TYPE /BIC/OIZTBLYR,
+*      InfoObject: ZDMLOTSZ DM Lot Size.
+        /BIC/ZDMLOTSZ           TYPE /BIC/OIZDMLOTSZ,
+*      InfoObject: ZASET_MFG Manufacturer of Asset.
+        /BIC/ZASET_MFG           TYPE /BIC/OIZASET_MFG,
+*      InfoObject: ZMODL_MFG Manufacturer Model Number.
+        /BIC/ZMODL_MFG           TYPE /BIC/OIZMODL_MFG,
+*      InfoObject: ZSAMPLN Electric Sample Needed.
+        /BIC/ZSAMPLN           TYPE /BIC/OIZSAMPLN,
+*      InfoObject: ZETC No of Electric Tests Completed.
+        /BIC/ZETC           TYPE /BIC/OIZETC,
+*      InfoObject: ZLASTDT Last Date.
+        /BIC/ZLASTDT           TYPE /BIC/OIZLASTDT,
+*      InfoObject: 0CREATED_BY Created By.
+        CREATED_BY           TYPE /BI0/OICREATED_BY,
+*      InfoObject: 0CH_ON Last changed on.
+        CH_ON           TYPE /BI0/OICH_ON,
+*      InfoObject: ZSAMP_NUM Sample Number.
+        /BIC/ZSAMP_NUM           TYPE /BIC/OIZSAMP_NUM,
+*      InfoObject: 0NONCNFRMTY Number of defects found.
+        NONCNFRMTY           TYPE /BI0/OINONCNFRMTY,
+*      InfoObject: 0DEFECTCLAS Error class.
+        DEFECTCLAS           TYPE /BI0/OIDEFECTCLAS,
+*      InfoObject: 0IVALUATION Code valuation.
+        IVALUATION           TYPE /BI0/OIIVALUATION,
+*      InfoObject: 0CCMENDAT End Date.
+        CCMENDAT           TYPE /BI0/OICCMENDAT,
+*      InfoObject: 0CCMENTIM End Time.
+        CCMENTIM           TYPE /BI0/OICCMENTIM,
+*      InfoObject: 0DF_OBCNT Counter Key.
+        DF_OBCNT           TYPE /BI0/OIDF_OBCNT,
+*      InfoObject: 0DESIRSI Target Value for Measuring Point in SI Unit.
+        DESIRSI           TYPE /BI0/OIDESIRSI,
+*      InfoObject: ZUPRLMT Upper Limit.
+        /BIC/ZUPRLMT           TYPE /BIC/OIZUPRLMT,
+*      InfoObject: ZLWRLMT Lower Limit.
+        /BIC/ZLWRLMT           TYPE /BIC/OIZLWRLMT,
+*      InfoObject: 0CCMWPID Work Process.
+        CCMWPID           TYPE /BI0/OICCMWPID,
+*      InfoObject: ZCONF_NUM Confirmation Number.
+        /BIC/ZCONF_NUM           TYPE /BIC/OIZCONF_NUM,
+*      InfoObject: 0ABCINDIC ABC indicator for technical object.
+        ABCINDIC           TYPE /BI0/OIABCINDIC,
+*      InfoObject: 0DF_OPERCNT General Order Counter (Operations).
+        DF_OPERCNT           TYPE /BI0/OIDF_OPERCNT,
+*      InfoObject: ZZBSTFE Fixed lot size.
+        /BIC/ZZBSTFE           TYPE /BIC/OIZZBSTFE,
+*      InfoObject: 0FLAG Indicator, Flag.
+        FLAG           TYPE /BI0/OIFLAG,
+*      InfoObject: 0INSP_QTY Quantity that was actually inspected.
+        INSP_QTY           TYPE /BI0/OIINSP_QTY,
+*      InfoObject: 0CATGRP_FE Code group - Problems.
+        CATGRP_FE           TYPE /BI0/OICATGRP_FE,
+*      InfoObject: 0UNIT Unit of Measure.
+        UNIT           TYPE /BI0/OIUNIT,
+*      InfoObject: 0SAMPLE_UOM Base unit of measure for the sample unit.
+        SAMPLE_UOM           TYPE /BI0/OISAMPLE_UOM,
+*      InfoObject: 0CATTYPE_FE Catalog type - Problems.
+        CATTYPE_FE           TYPE /BI0/OICATTYPE_FE,
+*      InfoObject: ZOPRTXT Operation Short text.
+        /BIC/ZOPRTXT           TYPE /BIC/OIZOPRTXT,
+*      InfoObject: ZCNTRLKEY Control Key.
+        /BIC/ZCNTRLKEY           TYPE /BIC/OIZCNTRLKEY,
+*      InfoObject: ZCHNGD_BY Changed By.
+        /BIC/ZCHNGD_BY           TYPE /BIC/OIZCHNGD_BY,
+*      InfoObject: ZCH_ON Last changed on.
+        /BIC/ZCH_ON           TYPE /BIC/OIZCH_ON,
+*      InfoObject: 0CHANGED_BY Changed By.
+        CHANGED_BY           TYPE /BI0/OICHANGED_BY,
+*      InfoObject: ZCAT_CODE Code.
+        /BIC/ZCAT_CODE           TYPE /BIC/OIZCAT_CODE,
+*      InfoObject: ZAD_MATNR Dev. Cat.: IS-U Additional Material Data.
+        /BIC/ZAD_MATNR           TYPE /BIC/OIZAD_MATNR,
+*      InfoObject: 0UC_DEVICE Device.
+        UC_DEVICE           TYPE /BI0/OIUC_DEVICE,
+*      InfoObject: 0EQUIPMENT Equipment Number.
+        EQUIPMENT           TYPE /BI0/OIEQUIPMENT,
+*      InfoObject: ZAPLZL Counter for Order.
+        /BIC/ZAPLZL           TYPE /BIC/OIZAPLZL,
+*      InfoObject: 0RF_ATWRT Characteristic Value.
+        RF_ATWRT           TYPE /BI0/OIRF_ATWRT,
+*      Field: RECORD.
+        RECORD           TYPE RSARECORD,
+      END   OF _ty_s_SC_1.
+    TYPES:
+      _ty_t_SC_1        TYPE STANDARD TABLE OF _ty_s_SC_1
+                        WITH NON-UNIQUE DEFAULT KEY.
+    TYPES:
+      BEGIN OF _ty_s_TG_1,
+*      InfoObject: 0CHNGID Change Run ID.
+        CHNGID           TYPE /BI0/OICHNGID,
+*      InfoObject: 0RECORDTP Record type.
+        RECORDTP           TYPE /BI0/OIRECORDTP,
+*      InfoObject: 0REQUID Request ID.
+        REQUID           TYPE /BI0/OIREQUID,
+*      InfoObject: 0INSP_LOT Inspection Lot Number.
+        INSP_LOT           TYPE /BI0/OIINSP_LOT,
+*      InfoObject: 0UCSERIALNR Serial Number.
+        UCSERIALNR           TYPE /BI0/OIUCSERIALNR,
+*      InfoObject: ZAF_TIDAF AF Tester ID.
+        /BIC/ZAF_TIDAF           TYPE /BIC/OIZAF_TIDAF,
+*      InfoObject: Z_SPNC_AF Special Note Comments.
+        /BIC/Z_SPNC_AF           TYPE /BIC/OIZ_SPNC_AF,
+*      InfoObject: ZAF_COND AF Condition Code.
+        /BIC/ZAF_COND           TYPE /BIC/OIZAF_COND,
+*      InfoObject: Z_STC_AF Special Test Code.
+        /BIC/Z_STC_AF           TYPE /BIC/OIZ_STC_AF,
+*      InfoObject: ZAF_TB_AF AF Test Board.
+        /BIC/ZAF_TB_AF           TYPE /BIC/OIZAF_TB_AF,
+*      InfoObject: ZAF_TD_AF AF Test Date.
+        /BIC/ZAF_TD_AF           TYPE /BIC/OIZAF_TD_AF,
+*      InfoObject: 0SIUNIT SI unit.
+        SIUNIT           TYPE /BI0/OISIUNIT,
+*      Field: RECORD.
+        RECORD           TYPE RSARECORD,
+      END   OF _ty_s_TG_1.
+    TYPES:
+      _ty_t_TG_1        TYPE STANDARD TABLE OF _ty_s_TG_1
+                        WITH NON-UNIQUE DEFAULT KEY.
+
+*$*$ begin of global - insert your declaration only below this line  *-*
+    ... "insert your code here
+*$*$ end of global - insert your declaration only before this line   *-*
+    METHODS
+      new_record__expert_routine
+        IMPORTING
+          log                      type ref to cl_rsbm_log_cursor_step
+          source_segid             type rstran_segid
+          source_record            type sytabix
+          target_segid             type rstran_segid
+        EXPORTING
+          record_new               type sytabix.
+
+    METHODS
+      expert_routine
+        IMPORTING
+          request                  type rsrequest
+          datapackid               type rsdatapid
+          log                      type ref to cl_rsbm_log_cursor_step
+        EXPORTING
+          RESULT_PACKAGE              type _ty_t_TG_1
+        CHANGING
+          SOURCE_PACKAGE              type _ty_t_SC_1.
+
+    METHODS
+      inverse_expert_routine
+        IMPORTING
+          i_th_fields_outbound         TYPE rstran_t_field_inv
+          i_r_selset_outbound          TYPE REF TO cl_rsmds_set
+          i_r_universe_inbound         TYPE REF TO cl_rsmds_universe
+        CHANGING
+          c_th_fields_inbound          TYPE rstran_t_field_inv
+          c_r_selset_inbound           TYPE REF TO cl_rsmds_set
+          c_exact                      TYPE rs_bool.
+ENDCLASS.                    "routine DEFINITION
+
+*$*$ begin of 2nd part global - insert your code only below this line  *
+... "insert your code here
+*$*$ end of 2nd part global - insert your code only before this line   *
+
+*---------------------------------------------------------------------*
+*       CLASS routine IMPLEMENTATION
+*---------------------------------------------------------------------*
+*
+*---------------------------------------------------------------------*
+CLASS lcl_transform IMPLEMENTATION.
+
+*----------------------------------------------------------------------*
+*       Method expert_routine
+*----------------------------------------------------------------------*
+*       Calculation of result package via expert routine
+*----------------------------------------------------------------------*
+*   -> package of source segments
+*   <- result package
+*----------------------------------------------------------------------*
+  METHOD expert_routine.
+*=== Segments ===
+
+    FIELD-SYMBOLS:
+      <SOURCE_FIELDS>    TYPE _ty_s_SC_1.
+
+    DATA:
+      RESULT_FIELDS      TYPE _ty_s_TG_1.
+
+*$*$ begin of routine - insert your code only below this line        *-*
+    ... "insert your code here
+
+    DATA: WA_R_PACK TYPE _TY_S_TG_1.
+
+    TYPES: BEGIN OF T_TABL_1,
+            INSP_LOT   TYPE /BIC/AZQM_D1300-INSP_LOT,
+            UCSERIALNR TYPE /BIC/AZQM_D1300-UCSERIALNR,
+           END OF T_TABL_1.
+
+    DATA: IT_TABL_1 TYPE STANDARD TABLE OF T_TABL_1.
+    DATA: WA_TABL_1 TYPE T_TABL_1.
+
+    TYPES: BEGIN OF T_TABL_2,
+            INSP_LOT   TYPE /BIC/AZQM_D1300-INSP_LOT,
+            UCSERIALNR TYPE /BIC/AZQM_D1300-UCSERIALNR,
+            MASTERCHAR TYPE /BIC/AZQM_D1300-MASTERCHAR,
+            ZKTSCH     TYPE /BIC/AZQM_D1300-/BIC/ZKTSCH,
+            CAT_CODE   TYPE /BIC/AZQM_D1300-CAT_CODE,
+            ZCOND_CD   TYPE /BIC/AZQM_D1300-/BIC/ZCOND_CD,
+            ZZTEXT     TYPE /BIC/AZQM_D1300-/BIC/ZZTEXT,
+            RECDVSI    TYPE /BIC/AZQM_D1300-RECDVSI,
+           END OF T_TABL_2.
+
+    DATA: IT_TABL_2 TYPE STANDARD TABLE OF T_TABL_2.
+    DATA: WA_TABL_2 TYPE T_TABL_2.
+
+    DATA: FLAG TYPE N LENGTH 1.
+
+    IF NOT SOURCE_PACKAGE IS INITIAL.
+
+      SELECT INSP_LOT UCSERIALNR FROM /BIC/AZQM_D1300
+        INTO TABLE IT_TABL_1 FOR ALL ENTRIES IN SOURCE_PACKAGE
+        WHERE INSP_LOT   = SOURCE_PACKAGE-INSP_LOT AND
+              UCSERIALNR = SOURCE_PACKAGE-UCSERIALNR.
+
+      SORT IT_TABL_1.
+      DELETE ADJACENT DUPLICATES FROM IT_TABL_1.
+
+      SELECT INSP_LOT UCSERIALNR MASTERCHAR /BIC/ZKTSCH
+        CAT_CODE /BIC/ZCOND_CD /BIC/ZZTEXT RECDVSI
+        FROM /BIC/AZQM_D1300 INTO TABLE IT_TABL_2
+        FOR ALL ENTRIES IN SOURCE_PACKAGE
+        WHERE INSP_LOT   = SOURCE_PACKAGE-INSP_LOT AND
+              UCSERIALNR = SOURCE_PACKAGE-UCSERIALNR.
+
+      SORT IT_TABL_2.
+      DELETE ADJACENT DUPLICATES FROM IT_TABL_2.
+
+      LOOP AT IT_TABL_1 INTO WA_TABL_1.
+        READ TABLE IT_TABL_2 WITH KEY
+        INSP_LOT   = WA_TABL_1-INSP_LOT
+        UCSERIALNR = WA_TABL_1-UCSERIALNR
+        TRANSPORTING NO FIELDS.
+
+        IF SY-SUBRC = 0.
+          LOOP AT IT_TABL_2 INTO WA_TABL_2 WHERE
+            INSP_LOT   = WA_TABL_1-INSP_LOT AND
+            UCSERIALNR = WA_TABL_1-UCSERIALNR.
+
+            IF WA_TABL_2-MASTERCHAR = 'ZAF_TB'.
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/ZAF_TB_AF  = WA_TABL_2-RECDVSI.
+            ENDIF.
+
+            IF WA_TABL_2-MASTERCHAR = 'ZAF_TD'.
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/ZAF_TD_AF  = WA_TABL_2-RECDVSI.
+            ENDIF.
+
+            IF WA_TABL_2-MASTERCHAR = 'ZAF_TID'.
+
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/ZAF_TIDAF  = WA_TABL_2-ZZTEXT.
+            ENDIF.
+
+            IF WA_TABL_2-MASTERCHAR = 'Z_SPNC'.
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/Z_SPNC_AF  = WA_TABL_2-ZZTEXT.
+            ENDIF.
+
+            IF WA_TABL_2-MASTERCHAR = 'Z_STC'.
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/Z_STC_AF   = WA_TABL_2-ZCOND_CD.
+            ENDIF.
+
+            IF WA_TABL_2-MASTERCHAR = 'ZAF_COND'.
+              WA_R_PACK-INSP_LOT        = WA_TABL_2-INSP_LOT.
+              WA_R_PACK-UCSERIALNR      = WA_TABL_2-UCSERIALNR.
+              WA_R_PACK-/BIC/ZAF_COND   = WA_TABL_2-CAT_CODE.
+            ENDIF.
+          ENDLOOP.
+          APPEND WA_R_PACK TO RESULT_PACKAGE.
+          CLEAR WA_R_PACK.
+          CLEAR WA_TABL_2.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
+
+    LOOP AT RESULT_PACKAGE INTO WA_R_PACK
+      WHERE INSP_LOT = ''.
+
+      IF SY-SUBRC = 0.
+        DELETE RESULT_PACKAGE.
+      ENDIF.
+    ENDLOOP.
+
+*$*$ end of routine - insert your code only before this line         *-*
+  ENDMETHOD.                    "expert_routine
+*----------------------------------------------------------------------*
+*       Method inverse_expert_routine
+*----------------------------------------------------------------------*
+*
+*       This subroutine needs to be implemented only for direct access
+*       (for better performance) and for the Report/Report Interface
+*       (drill through).
+*       The inverse routine should transform a projection and
+*       a selection for the target to a projection and a selection
+*       for the source, respectively.
+*       If the implementation remains empty all fields are filled and
+*       all values are selected.
+*
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+  METHOD inverse_expert_routine.
+
+*$*$ begin of inverse routine - insert your code only below this line*-*
+    ... "insert your code here
+*$*$ end of inverse routine - insert your code only before this line *-*
+
+  ENDMETHOD.                    "inverse_expert_routine
+
+  METHOD new_record__expert_routine.
+
+***** IMPLEMENTATION  is only visible in generated program *****
+
+  ENDMETHOD.
+ENDCLASS.                    "routine IMPLEMENTATION
